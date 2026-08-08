@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🫀 Human Body 3D Explorer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#04070d;font-family:'Segoe UI',system-ui,sans-serif;color:#dfeefb}
+canvas#scene{display:block}
+.glass{background:rgba(8,16,28,.78);border:1px solid rgba(111,211,255,.16);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#title{position:fixed;top:16px;left:16px;z-index:5;padding:10px 16px}
+#title h1{font-size:15px;letter-spacing:3px;color:#6fd3ff;font-weight:700}
+#title p{font-size:10.5px;color:#7fa8c4;letter-spacing:1px;margin-top:2px}
+#panel{position:fixed;left:16px;top:92px;z-index:5;width:212px;padding:14px;transition:transform .3s}
+.ptitle{font-size:10px;letter-spacing:2px;color:#6fd3ff;margin:10px 0 6px;font-weight:700}
+.ptitle:first-child{margin-top:0}
+#panel label.sys{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 4px;cursor:pointer;border-radius:8px;user-select:none}
+#panel label.sys:hover{background:rgba(111,211,255,.08)}
+#panel input[type=checkbox]{accent-color:#6fd3ff;width:14px;height:14px}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+#opacity{width:100%;accent-color:#6fd3ff;margin:4px 0}
+.hint{font-size:10.5px;color:#6d8ba1;line-height:1.6;margin-top:12px;border-top:1px dashed rgba(111,211,255,.2);padding-top:10px}
+#toolbar{position:fixed;top:16px;right:16px;z-index:5;display:flex;gap:8px}
+#toolbar button{width:42px;height:42px;border-radius:50%;border:1px solid rgba(111,211,255,.25);background:rgba(8,16,28,.8);color:#bfe6ff;font-size:17px;cursor:pointer;backdrop-filter:blur(8px);transition:.2s}
+#toolbar button:hover{background:rgba(111,211,255,.2);transform:scale(1.07)}
+#card{position:fixed;right:16px;bottom:16px;z-index:6;width:300px;padding:16px 18px}
+#card.hidden{display:none}
+#cardSys{display:inline-block;font-size:9.5px;letter-spacing:2px;font-weight:700;padding:3px 9px;border-radius:20px;color:#04121f;margin-bottom:8px}
+#card h2{font-size:20px;margin-bottom:6px;color:#fff}
+#card p{font-size:12px;line-height:1.55;color:#a9c6da}
+#cardSound{margin-top:10px;font-size:11px;color:#6fd3ff;border-top:1px solid rgba(111,211,255,.15);padding-top:8px}
+#cardClose{position:absolute;top:10px;right:12px;background:none;border:none;color:#7fa8c4;font-size:15px;cursor:pointer}
+#ecgWrap{position:fixed;left:16px;bottom:16px;z-index:5;padding:8px 10px 8px}
+#ecgWrap .lbl{font-size:9px;letter-spacing:2px;color:#39d97f;margin-bottom:4px;font-weight:700}
+#tooltip{position:fixed;z-index:9;pointer-events:none;background:rgba(6,14,24,.92);border:1px solid rgba(111,211,255,.35);color:#cfeeff;font-size:11.5px;padding:4px 10px;border-radius:8px;display:none;letter-spacing:.5px}
+#overlay{position:fixed;inset:0;z-index:20;background:radial-gradient(1200px 700px at 50% 35%,#0b2036 0%,#04070d 70%);display:flex;align-items:center;justify-content:center;transition:opacity .8s}
+#overlay.gone{opacity:0;pointer-events:none}
+.ov-inner{text-align:center;max-width:580px;padding:30px}
+.ov-inner h1{font-size:34px;letter-spacing:6px;color:#eaf6ff;font-weight:800}
+.ov-inner h1 span{color:#6fd3ff;display:block;font-size:15px;letter-spacing:9px;margin-top:6px;font-weight:600}
+.sub{color:#8fb4cc;margin-top:14px;font-size:14px}
+.ov-feats{display:flex;gap:10px;justify-content:center;margin:26px 0;flex-wrap:wrap}
+.feat{padding:10px 14px;font-size:11.5px;color:#bfe0f5;border:1px solid rgba(111,211,255,.2);border-radius:12px;background:rgba(111,211,255,.05)}
+#startBtn{font-size:16px;letter-spacing:3px;font-weight:700;color:#04121f;background:linear-gradient(135deg,#6fd3ff,#37a4e0);border:none;padding:15px 44px;border-radius:40px;cursor:pointer;box-shadow:0 0 34px rgba(111,211,255,.45);transition:.25s}
+#startBtn:hover{transform:scale(1.05)}
+.tiny{margin-top:16px;font-size:11px;color:#5f7d93}
+#panelToggle{display:none;position:fixed;left:16px;top:92px;z-index:6;width:42px;height:42px;border-radius:12px;border:1px solid rgba(111,211,255,.25);background:rgba(8,16,28,.85);color:#bfe6ff;font-size:18px;cursor:pointer}
+@media(max-width:760px){
+ #panel{transform:translateX(-115%);top:146px}
+ #panel.open{transform:none}
+ #panelToggle{display:block}
+ #card{width:calc(100% - 32px)}
+ #ecgWrap{display:none}
+ .ov-inner h1{font-size:26px}
+}
+</style>
+</head>
+<body>
+
+<div id="overlay">
+ <div class="ov-inner">
+  <h1>HUMAN BODY<span>3 D &nbsp;E X P L O R E R</span></h1>
+  <p class="sub">Interactive anatomy with real, physically-synthesized body sounds</p>
+  <div class="ov-feats">
+   <div class="feat">🖱️ Drag to rotate</div>
+   <div class="feat">🔍 Scroll / pinch to zoom</div>
+   <div class="feat">🫀 Click any organ — camera dives in & its real sound plays</div>
+   <div class="feat">🎚️ Toggle 7 organ systems</div>
+  </div>
+  <button id="startBtn">🫀 ENTER THE BODY</button>
+  <p class="tiny">🎧 Headphones recommended · sound is generated live in your browser</p>
+ </div>
+</div>
+
+<div id="title" class="glass"><h1>🫀 BODY EXPLORER 3D</h1><p>INTERACTIVE ANATOMY · LIVE BODY SOUNDS</p></div>
+
+<button id="panelToggle">☰</button>
+<div id="panel" class="glass">
+ <div class="ptitle">ORGAN SYSTEMS</div>
+ <label class="sys"><input type="checkbox" data-sys="skeletal" checked><span class="dot" style="background:#efe9d9"></span>Skeletal</label>
+ <label class="sys"><input type="checkbox" data-sys="circulatory" checked><span class="dot" style="background:#ff5964"></span>Circulatory</label>
+ <label class="sys"><input type="checkbox" data-sys="respiratory" checked><span class="dot" style="background:#6fc3ff"></span>Respiratory</label>
+ <label class="sys"><input type="checkbox" data-sys="digestive" checked><span class="dot" style="background:#ffb347"></span>Digestive</label>
+ <label class="sys"><input type="checkbox" data-sys="nervous" checked><span class="dot" style="background:#ffe14d"></span>Nervous</label>
+ <label class="sys"><input type="checkbox" data-sys="urinary" checked><span class="dot" style="background:#b58cff"></span>Urinary</label>
+ <label class="sys"><input type="checkbox" data-sys="skin" checked><span class="dot" style="background:#9fd8ef"></span>Integumentary (skin)</label>
+ <div class="ptitle">BODY SHELL OPACITY</div>
+ <input id="opacity" type="range" min="0" max="0.5" step="0.01" value="0.16">
+ <label class="sys"><input id="autorot" type="checkbox"> Auto-rotate</label>
+ <div class="hint">Drag to rotate · Scroll / pinch to zoom<br>Click any organ to dive inside it<br>Keys: <b>+/−</b> zoom · <b>R</b> reset · <b>M</b> mute · <b>Esc</b> back</div>
+</div>
+
+<div id="toolbar">
+ <button id="zin" title="Zoom in">＋</button>
+ <button id="zout" title="Zoom out">－</button>
+ <button id="resetBtn" title="Reset view">⟳</button>
+ <button id="muteBtn" title="Mute">🔊</button>
+</div>
+
+<div id="card" class="glass hidden">
+ <button id="cardClose">✕</button>
+ <div id="cardSys"></div>
+ <h2 id="cardName"></h2>
+ <p id="cardFact"></p>
+ <div id="cardSound"></div>
+</div>
+
+<div id="ecgWrap" class="glass">
+ <div class="lbl">♥ ECG · 70 BPM</div>
+ <canvas id="ecg" width="280" height="78"></canvas>
+</div>
+
+<div id="tooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+if(!window.THREE){document.body.innerHTML='<p style="color:#fff;padding:40px">Failed to load 3D engine — check your connection.</p>';return;}
+
+/* ============ DATA ============ */
+const SYSNAME={nervous:'NERVOUS SYSTEM',circulatory:'CIRCULATORY SYSTEM',respiratory:'RESPIRATORY SYSTEM',digestive:'DIGESTIVE SYSTEM',urinary:'URINARY SYSTEM',skeletal:'SKELETAL SYSTEM',skin:'INTEGUMENTARY SYSTEM'};
+const SYSCOL={nervous:'#ffe14d',circulatory:'#ff5964',respiratory:'#6fc3ff',digestive:'#ffb347',urinary:'#b58cff',skeletal:'#efe9d9',skin:'#9fd8ef'};
+const ORGANS={
+ brain:{n:'Brain',sys:'nervous',d:.5,snd:'neural hum & synaptic sparks',f:'The command center packs ~86 billion neurons and uses about 20% of your oxygen — despite being only 2% of body weight.'},
+ spinalCord:{n:'Spinal Cord',sys:'nervous',d:.5,snd:'neural hum',f:'A ~45 cm neural highway of bundled fibers carrying signals between brain and body, shielded by the vertebral column.'},
+ nerves:{n:'Peripheral Nerves',sys:'nervous',d:.7,snd:'neural hum & synaptic sparks',f:'Nerve fibers branch to every corner of the body, some conducting signals at up to ~120 m/s (430 km/h).'},
+ heart:{n:'Heart',sys:'circulatory',d:.42,snd:'realistic lub-dub heartbeat (~70 bpm)',f:'A fist-sized muscular pump beating ~100,000 times a day, pushing ~7,500 liters of blood through ~100,000 km of vessels.'},
+ vessels:{n:'Blood Vessels',sys:'circulatory',d:.6,snd:'heartbeat & blood flow',f:'Arteries, veins and capillaries laid end-to-end stretch ~100,000 km — enough to circle the Earth 2.5 times.'},
+ lungs:{n:'Lungs',sys:'respiratory',d:.5,snd:'rhythmic breathing (inhale–exhale)',f:'~300 million alveoli give the lungs ~70 m² of gas-exchange surface — about half a tennis court, folded into your chest.'},
+ trachea:{n:'Trachea & Bronchi',sys:'respiratory',d:.45,snd:'airflow through the windpipe',f:'The ~12 cm windpipe is held open by C-shaped cartilage rings, then splits into bronchi diving into each lung.'},
+ diaphragm:{n:'Diaphragm',sys:'respiratory',d:.6,snd:'breathing rhythm',f:'The dome-shaped muscle that powers every breath — contracting around 20,000 times a day without a break.'},
+ esophagus:{n:'Esophagus',sys:'digestive',d:.5,snd:'digestive tract rumble',f:'A ~25 cm muscular tube that squeezes food into the stomach with wave-like peristalsis — it even works upside down.'},
+ stomach:{n:'Stomach',sys:'digestive',d:.48,snd:'digestive gurgling',f:'Churns food in acid strong enough at pH 1.5–3.5 to dissolve metal — and rebuilds its mucus lining every few days to survive itself.'},
+ liver:{n:'Liver',sys:'digestive',d:.5,snd:'soft abdominal gurgle & blood flow',f:'The body\u2019s chemical factory runs 500+ tasks — detox, bile, storage — and is the only internal organ that can regrow from just 25%.'},
+ smallInt:{n:'Small Intestine',sys:'digestive',d:.6,snd:'intestinal gurgle',f:'About 6 meters long and lined with millions of finger-like villi, it absorbs roughly 90% of all nutrients from food.'},
+ largeInt:{n:'Large Intestine',sys:'digestive',d:.62,snd:'intestinal gurgle',f:'A ~1.5 m frame that reclaims water and electrolytes, hosting trillions of bacteria — your gut microbiome.'},
+ kidneys:{n:'Kidneys',sys:'urinary',d:.45,snd:'fluid filtration drips',f:'Each kidney holds ~1 million nephrons filtering ~180 liters of fluid daily, refining it down to 1–2 liters of urine.'},
+ bladder:{n:'Bladder',sys:'urinary',d:.45,snd:'fluid drips',f:'A stretchy reservoir holding 400–600 ml of urine; stretch receptors in its wall send the "time to go" signal.'},
+ skull:{n:'Skull',sys:'skeletal',d:.5,snd:'bone resonance knock',f:'22 bones — all fused except the movable mandible — form the hard protective case for the brain.'},
+ spine:{n:'Spine (Vertebrae)',sys:'skeletal',d:.5,snd:'bone knock',f:'33 vertebrae stacked with cushioning discs between them, housing the spinal cord while keeping the body flexible.'},
+ ribs:{n:'Rib Cage & Sternum',sys:'skeletal',d:.6,snd:'bone knock',f:'24 ribs in 12 pairs plus the sternum form a springy cage around heart and lungs, expanding ~20 times a minute as you breathe.'},
+ pelvis:{n:'Pelvis',sys:'skeletal',d:.6,snd:'bone knock',f:'The bony ring of ilium, ischium and pubis transfers the body\u2019s weight from spine to legs and cradles the organs below.'},
+ bones:{n:'Limb Bones',sys:'skeletal',d:.8,snd:'bone knock',f:'The adult skeleton counts 206 bones — gram for gram, bone is stronger than steel and stronger than concrete in compression.'},
+ skin:{n:'Skin',sys:'skin',d:2.3,snd:'heartbeat + breathing ambience',f:'The body\u2019s largest organ: ~2 m² and ~4 kg, renewing itself roughly every month, studded with millions of touch, heat and pain sensors.'}
+};
+const SOUND_OF={heart:'heart',vessels:'heart',lungs:'breath',trachea:'breath',diaphragm:'breath',stomach:'gurgle',smallInt:'gurgle',largeInt:'gurgle',esophagus:'gurgle',liver:'gurgleSoft',brain:'brain',spinalCord:'brain',nerves:'brain',kidneys:'drip',bladder:'drip',skull:'bone',ribs:'bone',spine:'bone',pelvis:'bone',bones:'bone',skin:'body'};
+const MIX={
+ ambient:{heart:.4,breath:.25}, heart:{heart:1,breath:.12}, breath:{breath:1,heart:.12},
+ gurgle:{gurgle:1,heart:.1}, gurgleSoft:{gurgle:.45,heart:.1}, brain:{brain:1,heart:.1},
+ drip:{drip:1,heart:.12,breath:.06}, bone:{bone:1,heart:.08}, body:{heart:.5,breath:.35}};
+
+/* ============ SCENE ============ */
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x04070d);
+scene.fog=new THREE.Fog(0x04070d,3.5,9);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.02,50);
+camera.position.set(0,1.35,4.6);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.12;
+renderer.domElement.id='scene';
+document.body.appendChild(renderer.domElement);
+
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=.06;
+controls.minDistance=.15;controls.maxDistance=6;
+controls.target.set(0,1.05,0);controls.autoRotateSpeed=.9;
+
+scene.add(new THREE.HemisphereLight(0xcfe6f7,0x1a2438,.9));
+const key=new THREE.DirectionalLight(0xffffff,.95);key.position.set(2.5,3.6,2.2);scene.add(key);
+const rim=new THREE.DirectionalLight(0x4f8fff,.55);rim.position.set(-3,2.2,-2.6);scene.add(rim);
+const inner=new THREE.PointLight(0xff9a80,.75,1.8);inner.position.set(0,1.22,0.06);scene.add(inner);
+
+const grid=new THREE.GridHelper(8,40,0x14405a,0x0a1a28);scene.add(grid);
+const disc=new THREE.Mesh(new THREE.CircleGeometry(1.15,48),new THREE.MeshBasicMaterial({color:0x0a1622,transparent:true,opacity:.85}));
+disc.rotation.x=-Math.PI/2;disc.position.y=.002;scene.add(disc);
+const ring=new THREE.Mesh(new THREE.RingGeometry(1.12,1.15,64),new THREE.MeshBasicMaterial({color:0x2f7fae,transparent:true,opacity:.5,side:THREE.DoubleSide}));
+ring.rotation.x=-Math.PI/2;ring.position.y=.004;scene.add(ring);
+
+let dust;
+(function(){const n=260,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[i*3]=(Math.random()-.5)*5;a[i*3+1]=Math.random()*2.6+.1;a[i*3+2]=(Math.random()-.5)*5;}
+const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(a,3));
+dust=new THREE.Points(g,new THREE.PointsMaterial({color:0x6fd3ff,size:.014,transparent:true,opacity:.3,depthWrite:false}));scene.add(dust);})();
+
+/* ============ HELPERS ============ */
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function std(color,extra){return new THREE.MeshStandardMaterial(Object.assign({color,roughness:.5,metalness:.06},extra||{}));}
+function tube(pts,r,mat,seg){const c=new THREE.CatmullRomCurve3(pts.map(p=>V3(p[0],p[1],p[2])));return new THREE.Mesh(new THREE.TubeGeometry(c,seg||64,r,10,false),mat);}
+function mkTube(curve,r,mat){return new THREE.Mesh(new THREE.TubeGeometry(curve,80,r,10,false),mat);}
+function limb(a,b,r1,r2,mat){const d=b.clone().sub(a);const len=d.length();const m=new THREE.Mesh(new THREE.CylinderGeometry(r2,r1,len,14),mat);m.position.copy(a).lerp(b,.5);m.quaternion.setFromUnitVectors(V3(0,1,0),d.normalize());return m;}
+
+const body=new THREE.Group();scene.add(body);
+const G={};['skeletal','circulatory','respiratory','digestive','nervous','urinary','skin'].forEach(k=>{G[k]=new THREE.Group();body.add(G[k]);});
+const clickable=[],shellMeshes=[];
+function reg(m,id){m.material=m.material.clone();m.userData.id=id;m.userData.be=m.material.emissive?m.material.emissive.getHex():0;m.userData.bi=(m.material.emissiveIntensity!==undefined)?m.material.emissiveIntensity:1;clickable.push(m);return m;}
+
+/* ============ SKIN SHELL ============ */
+const shellMat=new THREE.MeshPhongMaterial({color:0x8fd0ee,transparent:true,opacity:.16,shininess:90,specular:0x224455,side:THREE.DoubleSide,depthWrite:false});
+let baseShellOp=.16,targetShellOp=.16;
+function addShell(geo,x,y,z){const m=new THREE.Mesh(geo,shellMat);m.position.set(x,y,z);m.renderOrder=10;m.userData.id='skin';shellMeshes.push(m);G.skin.add(m);return m;}
+addShell(new THREE.SphereGeometry(.105,32,24),0,1.615,.005);
+addShell(new THREE.CylinderGeometry(.046,.052,.1,20),0,1.49,0);
+const torsoPts=[[.001,.92],[.14,.93],[.17,.98],[.185,1.05],[.16,1.14],[.165,1.22],[.185,1.30],[.195,1.38],[.185,1.43],[.10,1.455],[.001,1.46]].map(p=>new THREE.Vector2(p[0],p[1]));
+addShell(new THREE.LatheGeometry(torsoPts,48),0,0,0);
+[-1,1].forEach(s=>{
+ addShell(new THREE.SphereGeometry(.056,20,16),s*.205,1.40,0);
+ addShell(new THREE.CylinderGeometry(.042,.05,.26,14),0,0,0).position.set(0,0,0);
+ const ua=limb(V3(s*.205,1.40,0),V3(s*.245,1.145,.015),.05,.042,shellMat);ua.material=shellMat;ua.renderOrder=10;ua.userData.id='skin';shellMeshes.push(ua);G.skin.add(ua);
+ const fa=limb(V3(s*.245,1.145,.015),V3(s*.26,.885,.035),.042,.03,shellMat);fa.material=shellMat;fa.renderOrder=10;fa.userData.id='skin';shellMeshes.push(fa);G.skin.add(fa);
+ const hand=addShell(new THREE.SphereGeometry(.038,16,12),s*.268,.85,.045);hand.scale.set(.85,1.2,.6);
+ const th=limb(V3(s*.095,.93,0),V3(s*.1,.5,.012),.078,.056,shellMat);th.material=shellMat;th.renderOrder=10;th.userData.id='skin';shellMeshes.push(th);G.skin.add(th);
+ const ca=limb(V3(s*.1,.5,.012),V3(s*.095,.075,0),.056,.034,shellMat);ca.material=shellMat;ca.renderOrder=10;ca.userData.id='skin';shellMeshes.push(ca);G.skin.add(ca);
+ addShell(new THREE.BoxGeometry(.095,.05,.21),s*.095,.03,.06);
+});
+
+/* ============ SKELETAL ============ */
+const boneMat=std(0xe9e3d0,{roughness:.55});
+const skull=reg(new THREE.Mesh(new THREE.SphereGeometry(.094,28,20),boneMat),'skull');skull.position.set(0,1.615,.005);skull.scale.set(.95,1.02,1);G.skeletal.add(skull);
+const jaw=reg(new THREE.Mesh(new THREE.SphereGeometry(.05,20,14),boneMat),'skull');jaw.position.set(0,1.545,.03);jaw.scale.set(.85,.7,1);G.skeletal.add(jaw);
+for(let y=.96;y<=1.46;y+=.024){const v=reg(new THREE.Mesh(new THREE.CylinderGeometry(.016,.016,.017,12),boneMat),'spine');v.position.set(0,y,-.045);G.skeletal.add(v);}
+for(let i=0;i<6;i++){const y=1.35-i*.034,r=.118+.042*Math.sin((i/5)*Math.PI);
+ const rb=reg(new THREE.Mesh(new THREE.TorusGeometry(r,.0075,8,40,Math.PI),boneMat),'ribs');
+ rb.position.set(0,y,-.01);rb.rotation.x=Math.PI/2-.12;G.skeletal.add(rb);}
+const sternum=reg(new THREE.Mesh(new THREE.BoxGeometry(.024,.17,.014),boneMat),'ribs');sternum.position.set(0,1.28,.132);G.skeletal.add(sternum);
+const pelvis=reg(new THREE.Mesh(new THREE.TorusGeometry(.105,.02,10,36),boneMat),'pelvis');pelvis.rotation.x=Math.PI/2;pelvis.position.set(0,.955,0);pelvis.scale.set(1,1,.62);G.skeletal.add(pelvis);
+[-1,1].forEach(s=>{
+ G.skeletal.add(reg(limb(V3(0,1.415,.115),V3(s*.19,1.41,.04),.007,.007,boneMat),'bones'));
+ const sh=V3(s*.19,1.405,.005),el=V3(s*.235,1.15,.015),wr=V3(s*.255,.9,.035);
+ G.skeletal.add(reg(limb(sh,el,.013,.011,boneMat),'bones'));
+ G.skeletal.add(reg(limb(el,wr,.011,.009,boneMat),'bones'));
+ const ball=reg(new THREE.Mesh(new THREE.SphereGeometry(.02,12,10),boneMat),'bones');ball.position.copy(sh);G.skeletal.add(ball);
+ const hs=reg(new THREE.Mesh(new THREE.SphereGeometry(.022,12,10),boneMat),'bones');hs.position.set(s*.263,.865,.045);hs.scale.set(.8,1.2,.6);G.skeletal.add(hs);
+ const hip=V3(s*.09,.95,0),kn=V3(s*.095,.5,.012),an=V3(s*.09,.08,0);
+ G.skeletal.add(reg(limb(hip,kn,.016,.013,boneMat),'bones'));
+ G.skeletal.add(reg(limb(kn,an,.013,.01,boneMat),'bones'));
+ const kb=reg(new THREE.Mesh(new THREE.SphereGeometry(.017,12,10),boneMat),'bones');kb.position.copy(kn);G.skeletal.add(kb);
+ const ft=reg(new THREE.Mesh(new THREE.BoxGeometry(.035,.025,.13),boneMat),'bones');ft.position.set(s*.09,.032,.055);G.skeletal.add(ft);
+});
+
+/* ============ RESPIRATORY ============ */
+const lungsArr=[];
+[-1,1].forEach(s=>{
+ const lg=reg(new THREE.Mesh(new THREE.SphereGeometry(.062,24,18),std(0xe8909e,{roughness:.42})),'lungs');
+ lg.position.set(s*.072,1.275,.005);lg.scale.set(1,1.75,.72);lg.rotation.z=-s*.06;lg.userData.bs={x:1,y:1.75,z:.72};G.respiratory.add(lg);lungsArr.push(lg);
+ G.respiratory.add(reg(tube([[0,1.335,.015],[s*.03,1.315,.012],[s*.055,1.30,.008]],.008,std(0xd9a3ab)),'trachea'));
+});
+G.respiratory.add(reg(tube([[0,1.45,.01],[0,1.40,.012],[0,1.335,.015]],.013,std(0xd9a3ab)),'trachea'));
+const dia=reg(new THREE.Mesh(new THREE.SphereGeometry(.15,28,16),std(0xa8606d,{transparent:true,opacity:.55,roughness:.6})),'diaphragm');
+dia.position.set(0,1.155,0);dia.scale.set(1,.22,.85);dia.renderOrder=5;G.respiratory.add(dia);
+
+/* ============ CIRCULATORY ============ */
+const artMat=std(0xe5484d,{roughness:.4,emissive:0x55111a,emissiveIntensity:.4});
+const venMat=std(0x3f6fd8,{roughness:.4,emissive:0x0a1c44,emissiveIntensity:.4});
+const aortaC=new THREE.CatmullRomCurve3([V3(-.02,1.31,.045),V3(-.015,1.35,.02),V3(.005,1.365,0),V3(.015,1.335,-.01),V3(.015,1.16,-.028),V3(.012,.99,-.018),V3(0,.94,-.005)]);
+const vcC=new THREE.CatmullRomCurve3([V3(0,.94,.012),V3(.02,1.0,.005),V3(.028,1.18,.012),V3(.022,1.30,.035),V3(.006,1.34,.045)]);
+G.circulatory.add(reg(mkTube(aortaC,.008,artMat),'vessels'));
+G.circulatory.add(reg(mkTube(vcC,.009,venMat),'vessels'));
+const flowDefs=[];
+[-1,1].forEach(s=>{
+ const car=new THREE.CatmullRomCurve3([V3(s*.014,1.35,.02),V3(s*.016,1.46,.012),V3(s*.014,1.56,.002)]);
+ const jug=new THREE.CatmullRomCurve3([V3(s*.03,1.56,0),V3(s*.032,1.46,.008),V3(s*.028,1.35,.03)]);
+ const arm=new THREE.CatmullRomCurve3([V3(s*.19,1.39,.01),V3(s*.235,1.15,.02),V3(s*.255,.9,.04)]);
+ const fem=new THREE.CatmullRomCurve3([V3(s*.05,.95,.005),V3(s*.075,.72,.015),V3(s*.09,.5,.018),V3(s*.088,.2,.006),V3(s*.085,.09,0)]);
+ const leg=new THREE.CatmullRomCurve3([V3(s*.105,.09,.005),V3(s*.108,.5,.025),V3(s*.095,.75,.02),V3(s*.07,.95,.015)]);
+ G.circulatory.add(reg(mkTube(car,.0045,artMat),'vessels'));
+ G.circulatory.add(reg(mkTube(jug,.0045,venMat),'vessels'));
+ G.circulatory.add(reg(mkTube(arm,.0035,artMat),'vessels'));
+ G.circulatory.add(reg(mkTube(fem,.004,artMat),'vessels'));
+ G.circulatory.add(reg(mkTube(leg,.004,venMat),'vessels'));
+ flowDefs.push({c:car,col:0xff5a5a,n:1},{c:fem,col:0xff5a5a,n:1},{c:leg,col:0x6f9dff,n:1,rev:true},{c:jug,col:0x6f9dff,n:1,rev:true});
+});
+const heartMat=std(0xc0392b,{roughness:.35,emissive:0x40060b,emissiveIntensity:.5});
+const heart=reg(new THREE.Mesh(new THREE.SphereGeometry(.052,24,18),heartMat),'heart');
+heart.position.set(-.022,1.275,.05);heart.scale.set(1,1.15,.92);heart.rotation.z=.35;G.circulatory.add(heart);
+const bump=reg(new THREE.Mesh(new THREE.SphereGeometry(.022,14,12),heartMat),'heart');bump.position.set(-.005,1.325,.04);G.circulatory.add(bump);
+const particles=[];
+function addFlow(curve,n,color,speed,rev){for(let i=0;i<n;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.0055,8,8),new THREE.MeshBasicMaterial({color}));G.circulatory.add(m);particles.push({m,c:curve,t:Math.random(),speed,rev:!!rev});}}
+addFlow(aortaC,4,0xff5a5a,.16,false);addFlow(vcC,3,0x6f9dff,.14,true);
+flowDefs.forEach(f=>addFlow(f.c,f.n,f.col,.15,f.rev));
+
+/* ============ DIGESTIVE ============ */
+G.digestive.add(reg(tube([[0,1.44,0],[0,1.36,-.015],[-.02,1.24,-.005],[-.045,1.15,.01]],.008,std(0xc98a7d)),'esophagus'));
+const stomach=reg(new THREE.Mesh(new THREE.SphereGeometry(.055,24,18),std(0xcf8271,{roughness:.45})),'stomach');
+stomach.position.set(-.05,1.10,.03);stomach.scale.set(1.15,.95,.7);stomach.rotation.z=.5;G.digestive.add(stomach);
+const liver=reg(new THREE.Mesh(new THREE.SphereGeometry(.08,26,20),std(0x93402f,{roughness:.4})),'liver');
+liver.position.set(.045,1.145,.025);liver.scale.set(1.35,.62,.85);liver.rotation.z=-.15;G.digestive.add(liver);
+const gall=reg(new THREE.Mesh(new THREE.SphereGeometry(.012,12,10),std(0x6a8f4f)),'liver');gall.position.set(.02,1.115,.05);G.digestive.add(gall);
+const siPts=[];for(let i=0;i<5;i++){const y=1.075-i*.025;if(i%2===0){siPts.push([-.08,y,.055],[.08,y,.055]);}else{siPts.push([.08,y,.055],[-.08,y,.055]);}}
+G.digestive.add(reg(tube(siPts,.0145,std(0xe0985f,{roughness:.5}),220),'smallInt'));
+const liPts=[[.105,.965,.05],[.11,1.03,.048],[.105,1.085,.045],[.05,1.108,.055],[0,1.112,.06],[-.05,1.108,.055],[-.105,1.085,.045],[-.11,1.03,.048],[-.105,.965,.05],[-.06,.94,.035],[-.02,.925,.02],[0,.93,0]];
+G.digestive.add(reg(tube(liPts,.021,std(0xb0703f,{roughness:.55})),'largeInt'));
+
+/* ============ URINARY ============ */
+[-1,1].forEach(s=>{
+ const k=reg(new THREE.Mesh(new THREE.SphereGeometry(.028,18,14),std(0x8c3b34,{roughness:.45})),'kidneys');
+ k.position.set(s*.062,1.06,-.055);k.scale.set(.75,1.3,.6);k.rotation.z=s*.15;G.urinary.add(k);
+ G.urinary.add(reg(tube([[s*.06,1.03,-.045],[s*.04,.99,-.01],[s*.015,.95,.03]],.0035,std(0xd9b896)),'kidneys');
+});
+const bladder=reg(new THREE.Mesh(new THREE.SphereGeometry(.03,18,14),std(0xd8a24a,{roughness:.45})),'bladder');
+bladder.position.set(0,.95,.045);bladder.scale.set(1,.85,.9);G.urinary.add(bladder);
+
+/* ============ NERVOUS ============ */
+const brainGeo=new THREE.SphereGeometry(.071,40,28);
+(function(){const pp=brainGeo.attributes.position,v=new THREE.Vector3();
+for(let i=0;i<pp.count;i++){v.fromBufferAttribute(pp,i);const n=1+.07*Math.sin(v.x*85)*Math.sin(v.y*70+2)*Math.sin(v.z*75+4)+.05*Math.sin(v.y*120);v.multiplyScalar(n);pp.setXYZ(i,v.x,v.y,v.z);}
+brainGeo.computeVertexNormals();})();
+const brainMat=std(0xe8a4b6,{roughness:.5});
+const brain=reg(new THREE.Mesh(brainGeo,brainMat),'brain');brain.position.set(0,1.62,.008);brain.scale.set(.95,.88,1.06);G.nervous.add(brain);
+const cere=reg(new THREE.Mesh(new THREE.SphereGeometry(.03,16,12),brainMat),'brain');cere.position.set(0,1.575,-.045);G.nervous.add(cere);
+const stem=reg(new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.05,10),brainMat),'brain');stem.position.set(0,1.545,-.02);stem.rotation.x=.4;G.nervous.add(stem);
+const nerveMat=std(0xf2d98c,{roughness:.4,emissive:0x4a3c08,emissiveIntensity:.5});
+G.nervous.add(reg(tube([[0,1.52,-.03],[0,1.35,-.042],[0,1.15,-.048],[0,.96,-.045]],.009,nerveMat),'spinalCord'));
+[-1,1].forEach(s=>{
+ for(let y=1.0;y<=1.42;y+=.07)G.nervous.add(reg(tube([[0,y,-.04],[s*.08,y-.03,-.01],[s*.16,y-.06,.02]],.0028,nerveMat),'nerves'));
+ G.nervous.add(reg(tube([[s*.16,1.37,0],[s*.23,1.15,.02],[s*.25,.9,.04]],.003,nerveMat),'nerves'));
+ G.nervous.add(reg(tube([[s*.06,.95,-.02],[s*.09,.6,-.005],[s*.09,.15,.005]],.003,nerveMat),'nerves'));
+});
+
+/* ============ AUDIO ENGINE ============ */
+let AC=null,master,noiseBuf,muted=false;
+let heartMixG,breathGain,breathFilter,gurgleGain,gurgleFilter,brainGain,dripGain,boneGain;
+const mix={heart:.4,breath:.25,gurgle:0,brain:0,drip:0,bone:0};
+let nextBeat=0,nextDrip=0,nextKnock=0,nextSyn=0,gStart=-9,gDur=1,gBurstEnd=-9,gNext=1,gAmp=.5;
+let beatQ=[],lastBeat=-9;
+function makeNoise(sec){const b=AC.createBuffer(1,AC.sampleRate*sec,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
+function thump(t,vol,f0){
+ const o=AC.createOscillator(),g=AC.createGain();o.type='sine';
+ o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(38,t+.10);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.014);g.gain.exponentialRampToValueAtTime(.0001,t+.17);
+ o.connect(g);g.connect(heartMixG);o.start(t);o.stop(t+.2);
+ const n=AC.createBufferSource();n.buffer=noiseBuf;const nf=AC.createBiquadFilter();nf.type='lowpass';nf.frequency.value=120;
+ const ng=AC.createGain();ng.gain.setValueAtTime(vol*.5,t);ng.gain.exponentialRampToValueAtTime(.0001,t+.09);
+ n.connect(nf);nf.connect(ng);ng.connect(heartMixG);n.start(t);n.stop(t+.12);
+}
+function ping(t){
+ const f0=800+Math.random()*1100;
+ const n=AC.createBufferSource();n.buffer=noiseBuf;n.loop=true;
+ const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=f0;f.Q.value=9;
+ const g=AC.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.5,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+.22);
+ n.connect(f);f.connect(g);g.connect(dripGain);n.start(t);n.stop(t+.25);
+ const o=AC.createOscillator();o.type='sine';o.frequency.setValueAtTime(f0*1.5,t);o.frequency.exponentialRampToValueAtTime(f0*.65,t+.1);
+ const og=AC.createGain();og.gain.setValueAtTime(.14,t);og.gain.exponentialRampToValueAtTime(.0001,t+.15);
+ o.connect(og);og.connect(dripGain);o.start(t);o.stop(t+.18);
+}
+function knock(t){
+ const o=AC.createOscillator();o.type='triangle';o.frequency.setValueAtTime(150+Math.random()*70,t);o.frequency.exponentialRampToValueAtTime(90,t+.09);
+ const g=AC.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.5,t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+.12);
+ o.connect(g);g.connect(boneGain);o.start(t);o.stop(t+.15);
+ const n=AC.createBufferSource();n.buffer=noiseBuf;const hp=AC.createBiquadFilter();hp.type='highpass';hp.frequency.value=1800;
+ const ng=AC.createGain();ng.gain.setValueAtTime(.2,t);ng.gain.exponentialRampToValueAtTime(.0001,t+.04);
+ n.connect(hp);hp.connect(ng);ng.connect(boneGain);n.start(t);n.stop(t+.06);
+}
+function synapse(t){
+ const fq=900+Math.random()*1800;const o=AC.createOscillator();o.type='sine';
+ o.frequency.setValueAtTime(fq,t);o.frequency.exponentialRampToValueAtTime(fq*.6,t+.06);
+ const g=AC.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.05,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+.08);
+ o.connect(g);g.connect(brainGain);o.start(t);o.stop(t+.1);
+}
+function blip(fq){if(!AC)return;const t=AC.currentTime;const o=AC.createOscillator();o.type='square';o.frequency.value=fq||740;
+ const g=AC.createGain();g.gain.setValueAtTime(.06,t);g.gain.exponentialRampToValueAtTime(.0001,t+.07);
+ o.connect(g);g.connect(master);o.start(t);o.stop(t+.08);}
+function whoosh(){if(!AC)return;const t=AC.currentTime;const n=AC.createBufferSource();n.buffer=noiseBuf;n.loop=true;
+ const f=AC.createBiquadFilter();f.type='bandpass';f.Q.value=1.2;
+ f.frequency.setValueAtTime(350,t);f.frequency.exponentialRampToValueAtTime(1600,t+.28);
+ const g=AC.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.06);g.gain.exponentialRampToValueAtTime(.0001,t+.34);
+ n.connect(f);f.connect(g);g.connect(master);n.start(t);n.stop(t+.4);}
+function breathEnv(t){const T=4.8,ph=t%T;
+ if(ph<1.9){const x=ph/1.9;return .5-.5*Math.cos(Math.PI*x);}
+ if(ph<2.3)return 1;
+ if(ph<4.3){const x=(ph-2.3)/2;return .5+.5*Math.cos(Math.PI*x);}
+ return 0;}
+function initAudio(){
+ AC=new (window.AudioContext||window.webkitAudioContext)();
+ master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);
+ noiseBuf=makeNoise(2);
+ heartMixG=AC.createGain();heartMixG.gain.value=0;heartMixG.connect(master);
+ const bs=AC.createBufferSource();bs.buffer=noiseBuf;bs.loop=true;
+ breathFilter=AC.createBiquadFilter();breathFilter.type='bandpass';breathFilter.frequency.value=420;breathFilter.Q.value=.7;
+ breathGain=AC.createGain();breathGain.gain.value=0;
+ bs.connect(breathFilter);breathFilter.connect(breathGain);breathGain.connect(master);bs.start();
+ const gs=AC.createBufferSource();gs.buffer=noiseBuf;gs.loop=true;
+ gurgleFilter=AC.createBiquadFilter();gurgleFilter.type='bandpass';gurgleFilter.frequency.value=220;gurgleFilter.Q.value=5;
+ gurgleGain=AC.createGain();gurgleGain.gain.value=0;
+ gs.connect(gurgleFilter);gurgleFilter.connect(gurgleGain);gurgleGain.connect(master);gs.start();
+ brainGain=AC.createGain();brainGain.gain.value=0;brainGain.connect(master);
+ [96,99.6].forEach(f=>{const o=AC.createOscillator();o.type='sine';o.frequency.value=f;
+  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=320;o.connect(lp);lp.connect(brainGain);o.start();});
+ const air=AC.createBufferSource();air.buffer=noiseBuf;air.loop=true;
+ const alp=AC.createBiquadFilter();alp.type='lowpass';alp.frequency.value=500;
+ const ag=AC.createGain();ag.gain.value=.05;air.connect(alp);alp.connect(ag);ag.connect(brainGain);air.start();
+ dripGain=AC.createGain();dripGain.gain.value=0;dripGain.connect(master);
+ boneGain=AC.createGain();boneGain.gain.value=0;boneGain.connect(master);
+ const t=AC.currentTime;nextBeat=t+.2;nextDrip=t+1;nextKnock=t+1.5;nextSyn=t+.5;gNext=t+1;
+}
+function mixFor(key){const p=MIX[key]||MIX.ambient;
+ ['heart','breath','gurgle','brain','drip','bone'].forEach(k=>mix[k]=p[k]||0);
+ if(AC){heartMixG.gain.setTargetAtTime(mix.heart,AC.currentTime,.3);
+ dripGain.gain.setTargetAtTime(mix.drip,AC.currentTime,.3);
+ boneGain.gain.setTargetAtTime(mix.bone,AC.currentTime,.3);}}
+function audioUpdate(){
+ if(!AC)return;const t=AC.currentTime;
+ while(nextBeat<t+.3){thump(nextBeat,.95,84);thump(nextBeat+.30,.6,68);beatQ.push(nextBeat);nextBeat+=.857;}
+ while(beatQ.length&&beatQ[0]<=t){lastBeat=beatQ.shift();}
+ if(t>nextDrip){ping(t+.02);nextDrip=t+.8+Math.random()*2.4;}
+ if(t>nextKnock){knock(t+.02);nextKnock=t+1.5+Math.random()*2.4;}
+ if(t>nextSyn){synapse(t+.02);nextSyn=t+.25+Math.random()*1.2;}
+ const be=breathEnv(t);
+ breathGain.gain.value=be*.5*mix.breath;
+ breathFilter.frequency.value=330+be*520;
+ if(t>gBurstEnd&&t>gNext){gStart=t;gDur=.5+Math.random()*1.5;gBurstEnd=gStart+gDur;gNext=gBurstEnd+.7+Math.random()*3.2;gAmp=.35+Math.random()*.55;}
+ let gv=.05;
+ if(t<gBurstEnd&&t>=gStart){const p=(t-gStart)/gDur;gv+=gAmp*Math.pow(Math.sin(Math.PI*p),1.4);}
+ gurgleGain.gain.value=gv*.55*mix.gurgle;
+ gurgleFilter.frequency.value=170+95*Math.sin(t*.7)+70*Math.sin(t*1.31+2)+45*Math.sin(t*2.7+.5);
+ brainGain.gain.value=(.13+.05*Math.sin(t*.4))*mix.brain;
+}
+
+/* ============ UI / INTERACTION ============ */
+const $=id=>document.getElementById(id);
+const card=$('card'),cardName=$('cardName'),cardFact=$('cardFact'),cardSys=$('cardSys'),cardSound=$('cardSound');
+const tooltip=$('tooltip'),opSlider=$('opacity'),muteBtn=$('muteBtn'),overlay=$('overlay');
+let started=false,tw=null,selected=null,selMesh=null,hoverMesh=null;
+let pointerIn=false,lastPX=0,lastPY=0;
+const mouseNDC=new THREE.Vector2(),raycaster=new THREE.Raycaster();
+function isShown(o){while(o){if(o.visible===false)return false;o=o.parent;}return true;}
+function tweenTo(cp,tt){tw={cp,tt};}
+controls.addEventListener('start',()=>{tw=null;});
+function setGlow(m,i){if(!m||!m.material.emissive)return;m.material.emissive.setHex(0x2f86d6);m.material.emissiveIntensity=i;}
+function clearGlow(m){if(!m||!m.material.emissive)return;m.material.emissive.setHex(m.userData.be);m.material.emissiveIntensity=m.userData.bi;}
+function select(id,mesh){
+ const info=ORGANS[id];if(!info)return;
+ if(selMesh&&selMesh!==mesh)clearGlow(selMesh);
+ selected=id;selMesh=(mesh&&mesh.userData.id===id&&mesh.material.emissive)?mesh:null;
+ cardName.textContent=info.n;cardFact.textContent=info.f;
+ cardSys.textContent=SYSNAME[info.sys];cardSys.style.background=SYSCOL[info.sys];
+ cardSound.textContent='🔊 Now playing: '+info.snd;
+ card.classList.remove('hidden');
+ mixFor(SOUND_OF[id]);
+ targetShellOp=(id==='skin')?baseShellOp:Math.min(baseShellOp,.055);
+ let p,d=info.d;
+ if(mesh){p=new THREE.Vector3();mesh.getWorldPosition(p);}else p=V3(0,1.12,0);
+ const dir=camera.position.clone().sub(controls.target);
+ if(dir.lengthSq()<1e-6)dir.set(0,0,1);dir.normalize();
+ tweenTo(p.clone().add(dir.multiplyScalar(d)),p);
+ blip();whoosh();
+}
+function deselect(){
+ if(!selected)return;
+ if(selMesh)clearGlow(selMesh);
+ selected=null;selMesh=null;
+ card.classList.add('hidden');
+ targetShellOp=baseShellOp;
+ mixFor('ambient');
+}
+function handlePick(e){
+ mouseNDC.x=e.clientX/innerWidth*2-1;mouseNDC.y=-(e.clientY/innerHeight)*2+1;
+ raycaster.setFromCamera(mouseNDC,camera);
+ const hits=raycaster.intersectObjects(clickable.filter(isShown),false);
+ if(hits.length){select(hits[0].object.userData.id,hits[0].object);return;}
+ const sh=raycaster.intersectObjects(shellMeshes.filter(isShown),false);
+ if(sh.length)select('skin',null);else deselect();
+}
+let downX=0,downY=0,downT=0;
+renderer.domElement.addEventListener('pointerdown',e=>{downX=e.clientX;downY=e.clientY;downT=performance.now();});
+renderer.domElement.addEventListener('pointerup',e=>{if(started&&Math.hypot(e.clientX-downX,e.clientY-downY)<7&&performance.now()-downT<500)handlePick(e);});
+renderer.domElement.addEventListener('pointermove',e=>{mouseNDC.x=e.clientX/innerWidth*2-1;mouseNDC.y=-(e.clientY/innerHeight)*2+1;pointerIn=true;lastPX=e.clientX;lastPY=e.clientY;});
+function dolly(f){tw=null;const off=camera.position.clone().sub(controls.target);
+ const len=THREE.MathUtils.clamp(off.length()*f,controls.minDistance,controls.maxDistance);
+ off.setLength(len);camera.position.copy(controls.target).add(off);whoosh();}
+function resetView(){deselect();tweenTo(V3(0,1.24,2.75),V3(0,1.05,0));whoosh();}
+function toggleMute(){if(!AC)return;muted=!muted;master.gain.setTargetAtTime(muted?0:.9,AC.currentTime,.05);muteBtn.textContent=muted?'🔇':'🔊';}
+$('zin').onclick=()=>dolly(.8);
+$('zout').onclick=()=>dolly(1.25);
+$('resetBtn').onclick=resetView;
+muteBtn.onclick=toggleMute;
+$('cardClose').onclick=deselect;
+$('panelToggle').onclick=()=>$('panel').classList.toggle('open');
+document.querySelectorAll('#panel input[data-sys]').forEach(cb=>{
+ cb.addEventListener('change',()=>{G[cb.dataset.sys].visible=cb.checked;blip(620);
+  if(selected&&ORGANS[selected].sys===cb.dataset.sys&&!cb.checked)deselect();});});
+opSlider.addEventListener('input',()=>{baseShellOp=parseFloat(opSlider.value);if(!selected)targetShellOp=baseShellOp;});
+$('autorot').addEventListener('change',e=>{controls.autoRotate=e.target.checked;blip(620);});
+window.addEventListener('keydown',e=>{
+ if(!started)return;
+ if(e.key==='+'||e.key==='=')dolly(.8);
+ else if(e.key==='-')dolly(1.25);
+ else if(e.key==='r'||e.key==='R')resetView();
+ else if(e.key==='m'||e.key==='M')toggleMute();
+ else if(e.key==='Escape')deselect();});
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+$('startBtn').addEventListener('click',()=>{
+ initAudio();if(AC.resume)AC.resume();
+ mixFor('ambient');started=true;
+ overlay.classList.add('gone');
+ whoosh();
+ tweenTo(V3(0,1.24,2.75),V3(0,1.05,0));
+});
+
+/* ============ ECG ============ */
+const ecgCv=$('ecg'),ex=ecgCv.getContext('2d');
+ex.fillStyle='#05130c';ex.fillRect(0,0,ecgCv.width,ecgCv.height);
+let ecgLastY=ecgCv.height*.62;
+function ecgWave(a){
+ if(a<0||a>.857)return 0;
+ if(a<.08)return .08*Math.sin(a/.08*Math.PI);
+ if(a<.13)return 0;
+ if(a<.15)return -(a-.13)/.02*.14;
+ if(a<.18)return -.14+(a-.15)/.03*1.2;
+ if(a<.21)return 1.06-(a-.18)/.03*1.32;
+ if(a<.25)return -.26+(a-.21)/.04*.26;
+ if(a<.44)return .13*Math.sin((a-.25)/.19*Math.PI);
+ return 0;}
+function drawECG(dt){
+ const w=ecgCv.width,h=ecgCv.height,dx=Math.max(1,Math.round(100*dt));
+ ex.drawImage(ecgCv,-dx,0);
+ ex.clearRect(w-dx,0,dx,h);
+ const a=(AC?AC.currentTime:0)-lastBeat;
+ const y=h*.62-ecgWave(a)*h*.48;
+ ex.strokeStyle='#3dff8c';ex.lineWidth=1.6;ex.shadowColor='#3dff8c';ex.shadowBlur=6;
+ ex.beginPath();ex.moveTo(w-dx-1,ecgLastY);ex.lineTo(w-1,y);ex.stroke();ex.shadowBlur=0;
+ ecgLastY=y;
+}
+
+/* ============ MAIN LOOP ============ */
+const clock=new THREE.Clock();
+function heartPulseScale(now){let s=1;const a=now-lastBeat;
+ if(a>0&&a<.14)s+=.14*Math.sin(a/.14*Math.PI);
+ const b=a-.30;if(b>0&&b<.12)s+=.08*Math.sin(b/.12*Math.PI);
+ return s;}
+function animate(){
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.05),tg=clock.elapsedTime;
+ controls.update();
+ if(tw){camera.position.lerp(tw.cp,.08);controls.target.lerp(tw.tt,.08);
+  if(camera.position.distanceTo(tw.cp)<.015&&controls.target.distanceTo(tw.tt)<.015)tw=null;}
+ const now=AC?AC.currentTime:tg;
+ const be=breathEnv(now);
+ lungsArr.forEach(l=>{const b=l.userData.bs;l.scale.set(b.x*(1+be*.05),b.y*(1+be*.09),b.z*(1+be*.06));});
+ const hp=heartPulseScale(now);heart.scale.set(1*hp,1.15*hp,.92*hp);
+ particles.forEach(p=>{p.t=(p.t+dt*p.speed)%1;const u=p.rev?1-p.t:p.t;p.c.getPointAt(u,p.m.position);});
+ dust.rotation.y+=dt*.02;
+ shellMat.opacity+=(targetShellOp-shellMat.opacity)*.1;
+ if(selMesh&&selMesh.material.emissive)selMesh.material.emissiveIntensity=.35+.28*Math.sin(tg*6);
+ if(started&&pointerIn){
+  raycaster.setFromCamera(mouseNDC,camera);
+  const list=clickable.concat(shellMeshes);
+  const hits=raycaster.intersectObjects(list.filter(isShown),false);
+  const nh=hits.length?hits[0].object:null;
+  if(nh!==hoverMesh){
+   if(hoverMesh&&hoverMesh!==selMesh)clearGlow(hoverMesh);
+   hoverMesh=nh;
+   if(hoverMesh){
+    if(hoverMesh!==selMesh)setGlow(hoverMesh,.5);
+    tooltip.textContent=ORGANS[hoverMesh.userData.id]?ORGANS[hoverMesh.userData.id].n:'';
+    tooltip.style.display=tooltip.textContent?'block':'none';
+    renderer.domElement.style.cursor='pointer';
+   }else{tooltip.style.display='none';renderer.domElement.style.cursor='grab';}
+  }
+  if(hoverMesh){tooltip.style.left=(lastPX+14)+'px';tooltip.style.top=(lastPY+10)+'px';}
+ }
+ audioUpdate();
+ if(started)drawECG(dt);
+ renderer.render(scene,camera);
+}
+animate();
+})();
+</script>
+</body>
+</html>
